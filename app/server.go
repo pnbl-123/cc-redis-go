@@ -23,11 +23,13 @@ func main() {
 	defer conn.Close()
 	// read datasource, init reader
 
-	// write
-	_, err = conn.Write([]byte("+PONG\r\n"))
+	for i := 0; i < 2; i++ {
+		// write
+		_, err = conn.Write([]byte("+PONG\r\n"))
 
-	if err != nil {
-		fmt.Println("Error write msg: ", err.Error())
-		os.Exit(1)
+		if err != nil {
+			fmt.Println("Error write msg: ", err.Error())
+			os.Exit(1)
+		}
 	}
 }
