@@ -3,9 +3,25 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 )
+
+func handleConn(conn net.Conn) {
+	defer conn.Close()
+
+	buf := make([]byte, 128)
+
+	for {
+		n, err := conn.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		log.Printf("commands: \n%s", buf[:n])
+		conn.Write([]byte("+PONG\r\n"))
+	}
+}
 
 func main() {
 	fmt.Println("Logs from your program will appear here!")
@@ -16,26 +32,18 @@ func main() {
 	}
 	defer l.Close()
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Println("Error parsing command: ", err.Error())
-		os.Exit(1)
-	}
-	defer conn.Close()
-
-	buf := make([]byte, 1024)
-
 	for {
-		_, err := conn.Read(buf)
-		if err == io.EOF {
-			os.Exit(0)
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
 		}
+		if err != nil {
+			fmt.Println("Error parsing command: ", err.Error())
+			os.Exit(1)
+		}
+		go handleConn(conn)
 
-		conn.Write([]byte("+PONG\r\n"))
 	}
 
 }
