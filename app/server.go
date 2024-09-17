@@ -2,25 +2,43 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
+	"github.com/codecrafters-io/redis-starter-go/resp"
 	"net"
 	"os"
+	"strings"
 )
 
 func handleConn(conn net.Conn) {
 	defer conn.Close()
-
-	buf := make([]byte, 128)
-
+	resp := resp.NewResp(conn)
 	for {
-		n, err := conn.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		log.Printf("commands: \n%s", buf[:n])
-		conn.Write([]byte("+PONG\r\n"))
+	value, err := resp.Read()
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+
+	fmt.Println(value)
+	if value.Typ == "array" && len(value.Array) > 0 {
+		command := strings.ToUpper(value.Array[0].Bulk)
+		switch command {
+		case "PING":
+			conn.Write([]byte("+PONG\r\n"))
+		case "ECHO":
+			if len(value.Array) < 2 {
+				conn.Write([]byte("-ERR wrong number of arguments for 'echo' command\r\n"))
+			} else {
+				response := fmt.Sprintf("$%d\r\n%s\r\n", len(value.Array[1].Bulk), value.Array[1].Bulk)
+				conn.Write([]byte(response))
+			}
+		default:
+			conn.Write([]byte("-ERR unknown command '" + command + "'\r\n"))
+		}
+	} else {
+		conn.Write([]byte("-ERR invalid request\r\n"))
+	}
+}
+
 }
 
 func main() {
