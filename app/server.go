@@ -8,36 +8,53 @@ import (
 	"strings"
 )
 
+var AOF map[string]string = make(map[string]string)
+
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 	resp := resp.NewResp(conn)
 	for {
-	value, err := resp.Read()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	fmt.Println(value)
-	if value.Typ == "array" && len(value.Array) > 0 {
-		command := strings.ToUpper(value.Array[0].Bulk)
-		switch command {
-		case "PING":
-			conn.Write([]byte("+PONG\r\n"))
-		case "ECHO":
-			if len(value.Array) < 2 {
-				conn.Write([]byte("-ERR wrong number of arguments for 'echo' command\r\n"))
-			} else {
-				response := fmt.Sprintf("$%d\r\n%s\r\n", len(value.Array[1].Bulk), value.Array[1].Bulk)
-				conn.Write([]byte(response))
-			}
-		default:
-			conn.Write([]byte("-ERR unknown command '" + command + "'\r\n"))
+		value, err := resp.Read()
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
-	} else {
-		conn.Write([]byte("-ERR invalid request\r\n"))
+		fmt.Println(value)
+
+		if value.Typ == "array" && len(value.Array) > 0 {
+			command := strings.ToUpper(value.Array[0].Bulk)
+
+			switch command {
+			case "PING":
+				conn.Write([]byte("+PONG\r\n"))
+			case "ECHO":
+				if len(value.Array) < 2 {
+					conn.Write([]byte("-ERR wrong number of arguments for 'echo' command\r\n"))
+				} else {
+					response := fmt.Sprintf("$%d\r\n%s\r\n", len(value.Array[1].Bulk), value.Array[1].Bulk)
+					conn.Write([]byte(response))
+				}
+			case "SET":
+				fmt.Println("%s - %s", value.Array[1].Bulk, value.Array[2].Bulk)
+				AOF[value.Array[1].Bulk] = value.Array[2].Bulk
+				conn.Write([]byte("+OK\r\n"))
+			case "GET":
+				fmt.Println("%v", AOF[value.Array[1].Bulk])
+				val, ok := AOF[value.Array[1].Bulk]
+				if !ok {
+					fmt.Println("not ok %v", value.Array[1].Bulk)
+				}
+				byteMessage := []byte("+" + val + "\r\n")
+
+				conn.Write([]byte(byteMessage))
+
+			default:
+				conn.Write([]byte("-ERR unknown command '" + command + "'\r\n"))
+			}
+		} else {
+			conn.Write([]byte("-ERR invalid request\r\n"))
+		}
 	}
-}
 
 }
 
