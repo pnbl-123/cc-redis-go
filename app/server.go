@@ -35,18 +35,36 @@ func handleConn(conn net.Conn) {
 					conn.Write([]byte(response))
 				}
 			case "SET":
-				fmt.Println("%s - %s", value.Array[1].Bulk, value.Array[2].Bulk)
-				AOF[value.Array[1].Bulk] = value.Array[2].Bulk
+				key := value.Array[1].Bulk
+				val := value.Array[2].Bulk
+
+				// Log the SET operation
+				fmt.Printf("SET %s - %s\n", key, val)
+
+				// Save the key-value pair in the AOF map
+				AOF[key] = val
+
+				// Respond with OK
 				conn.Write([]byte("+OK\r\n"))
 			case "GET":
-				fmt.Println("%v", AOF[value.Array[1].Bulk])
-				val, ok := AOF[value.Array[1].Bulk]
-				if !ok {
-					fmt.Println("not ok %v", value.Array[1].Bulk)
-				}
-				byteMessage := []byte("+" + val + "\r\n")
+				key := value.Array[1].Bulk
 
-				conn.Write([]byte(byteMessage))
+				// Check if the key exists in the AOF map
+				val, ok := AOF[key]
+				if !ok {
+					// Log if the key is not found
+					fmt.Printf("GET %s - Key not found\n", key)
+
+					// Respond with a nil message
+					conn.Write([]byte("$-1\r\n"))
+				}
+
+				// Log the GET operation
+				fmt.Printf("GET %s - %s\n", key, val)
+
+				// Prepare and send the response
+				byteMessage := []byte("+" + val + "\r\n")
+				conn.Write(byteMessage)
 
 			default:
 				conn.Write([]byte("-ERR unknown command '" + command + "'\r\n"))
